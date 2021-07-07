@@ -1,2 +1,2 @@
 # RSGL-Music-Player
-Simple Music Player made with RSGL (WIP)
+Simple Music Player for linux made with RSGL (WIP)
