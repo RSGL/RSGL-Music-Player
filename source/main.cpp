@@ -1,6 +1,7 @@
 #include "../include/RSGL/RSGL.hpp"
-#include <vector>
 #include <iostream>
+#include <vector>
+#include "../include/glob.h"
 #include <sys/syscall.h>
 
 bool running = true;
@@ -8,40 +9,30 @@ std::vector<RSGL::music> songs;
 std::vector<int> played;
 
 std::vector<RSGL::music> loadFolder(std::string dir){
-    std::vector<RSGL::music> output;
-    std::string c = "find " + dir + " -name \"*.mp3\"";
-    FILE* f = popen(c.data(),"r"); std::string read; char* fs; char ch; int len;
-    if (f){
-        while(fgetc(f) != EOF) len++; fs = (char*) malloc(len);
-        int i =0; 
-        while( ch=fgetc(f) != EOF){ fs[i] = ch; i++; }
-        std::cout << fs;
-        fclose (f);
-    
-        if (fs){
-            std::string file;
-            for (int i=0; i < len; i++){
-                if (fs[i] != '\n') file+= fs[i];
-                else{output.insert(output.end(), RSGL::loadMusic(file)); file="";}
-            }
-            return output; 
-        } 
+    std::vector<std::string> files = glob(dir+"*mp3");
+    std::string sim;  int dircode=0;
+    for (int i=0; !dircode; i++){
+        sim += "*/"; glob(dir+sim);  dircode = globReturn;
+        if (!dircode){ 
+            std::vector<std::string> g = glob(dir+sim+"*mp3"); 
+            if (g.size()) files.insert(files.end(),g.begin(),g.end());
+        }
     }
-    return {};
+
+    std::vector<RSGL::music> output;
+    for (int i=0; i < files.size(); i++) output.insert(output.end(), RSGL::loadMusic(files.at(i))); 
+    return output;  
 }
 
 int main(){
     RSGL::init();
+    songs = loadFolder("/home/manjaro/Music/.music/");
     RSGLWindow window = createWindow("RSGL Music Player",500,500,300,300, {255,255,255});    
     Event e;
 
     int I=0;  int pause = 0;
     int song = 0; int suffle=0;
-    int dir = 1;
-    /*cAudio::IAudioManager* audioMgr = cAudio::createAudioManager(false);
-    cAudio::IAudioSource* mysound = audioMgr->create("song", "/home/manjaro/Music/.music/(Probably) Racist/22. 4 My Nuckas.mp3",true);*/
-    //songs = {RSGL::loadMusic("/home/manjaro/Music/.music/(Probably) Racist/22. 4 My Nuckas.mp3"),RSGL::loadMusic("/home/manjaro/Music/.music/(Probably) Racist/4. My Shit.mp3"),RSGL::loadMusic("/home/manjaro/Music/.music/Black Man Of Steal/28. Fly Like Me.mp3")};
-    songs = loadFolder("/home/manjaro/Music/.music/");
+    int dir = 1; int start=1;
 
     RSGL::imgButton Pause = {RSGL::loadImage("../res/pause.png",{100,200,60,60})}; 
     RSGL::imgButton Skip = {RSGL::loadImage("../res/skip.png",{160,200,60,60})}; 
@@ -65,7 +56,7 @@ int main(){
         }
 
         if (I < songs.size() && !RSGL::isPlaying(songs[song])){
-            RSGL::playMusic(songs[I],1);  I+=dir; if(dir) dir=1;
+            if (!start){I+=dir;} RSGL::playMusic(songs[I],1); if(dir) dir=1; start=0;
         } 
         song = I;
         if (suffle){ 
@@ -79,8 +70,8 @@ int main(){
         }
 
         if (Pause.isClicked()){
-            if (pause){RSGL::resumeMusic(); pause=0; /*Pause.img = RSGL::loadImage("../res/play.png",{100,200,60,60});*/}
-            if (!pause){RSGL::pauseMusic(); pause=1; /*Pause.img = RSGL::loadImage("../res/pause.png",{100,200,60,60});*/}
+            if (pause){RSGL::resumeMusic(); pause=0; Pause.img = RSGL::loadImage("../res/play.png",{100,200,60,60});}
+            if (!pause){RSGL::pauseMusic(); pause=1; Pause.img = RSGL::loadImage("../res/pause.png",{100,200,60,60});}
         }
         if (Skip.isClicked()){ RSGL::stopMusic(); dir=1;}
         if (Back.isClicked()){RSGL::stopMusic(); dir=-1;}
