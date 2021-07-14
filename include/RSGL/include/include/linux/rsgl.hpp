@@ -2,10 +2,10 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include <deps/X11/Xlib.h>
-#include <deps/X11/Xatom.h>
-#include <deps/X11/cursorfont.h>
-#include <deps/SDL2_mixer/SDL_mixer.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/cursorfont.h>
+#include <SDL2/SDL_mixer.h>
 #include "deps/CImg.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "deps/stb_image_write.h" 
@@ -13,6 +13,8 @@
  
 #define STB_TRUETYPE_IMPLEMENTATION 
 #include "deps/stb_truetype.h"
+
+#include "deps/AL/al.h"
 
 #ifndef VULKAN
     #ifndef OPENGL
@@ -28,8 +30,8 @@
 
 #ifdef OPENGL
   #define CAIRO_HAS_PNG_FUNCTIONS 1
-  #include <deps/cairo/cairo.h>
-  #include <deps/cairo/cairo-xlib.h>
+  #include <cairo/cairo.h>
+  #include <cairo/cairo-xlib.h>
 #endif
 
 using namespace cimg_library;
@@ -61,6 +63,7 @@ namespace RSGL{
     const int MouseButtonReleased=5;
     const int MousePosChanged=6;
     const int quit = 33;
+    const int dnd = 34;
 
     struct point{int x, y;};
     struct rect{int x, y; int length,width; };
@@ -106,9 +109,9 @@ namespace RSGL{
     int ImageCollideImage(RSGL::image img, RSGL::image img2);
     
     
-    struct music{Mix_Music* loaded; bool isLoaded=false; int channel;};
+    struct music{Mix_Music* loaded; bool isLoaded=false;std::string title;};
 
-    music loadMusic(std::string file){return {Mix_LoadMUS(file.data()),true};}
+    music loadMusic(std::string file){return {Mix_LoadMUS(file.data()),true,file};}
 
     image loadImage(const char* file, RSGL::rect r);
 
@@ -174,7 +177,49 @@ namespace RSGL{
       int pos = 1; 
       void draw(); 
     };
+
+
+    std::vector<std::string> fileDialog(std::string title,bool multiple=false,bool save=false, bool directory=false);
+    void notifiy(std::string title, std::string content,std::string image="");
+    void messageBox(std::string message, bool question=false,bool error=false);
 };
+
+
+
+void RSGL::notifiy(std::string title, std::string content ,std::string image){
+  std::string com = "notify-send \"" + title +"\" \"" + content + "\" ";
+  if (image != "")  com += "-i \"" + image + "\"";
+  popen(com.data(),"r");
+}
+
+void RSGL::messageBox(std::string message,bool question,bool error){
+  std::string com = "zenity ";
+  if (question) com+="--question "; else if (error) com+= "error"; else com+="--warning ";
+  com += "--text \"" + message + "\"";
+  std::cout << com.data();
+  popen(com.data(),"r");
+}
+
+std::vector<std::string> RSGL::fileDialog(std::string title,bool multiple,bool save, bool directory){
+  char filename[1024];
+  std::string com="zenity --file-selection --title=\""+title+"\"";
+  if (multiple) com += " --multiple --separator=\" \"";
+  if (directory) com += " --directory";
+  if (save) com += " --save";
+  FILE *f = popen(com.data(), "r");
+  fgets(filename, 1024, f);
+  std::string fn(filename);
+  if (multiple){
+    std::vector<std::string> output;
+    std::string file;
+    for (int i=0; i < fn.size(); i++){
+      if (fn[i] == ' '){ output.insert(output.end(),file); file="";}
+      else file+=fn[i];
+    }
+  }
+  return {fn};
+}
+
 
 
 void RSGL::circleSliderThingy::draw(){
@@ -417,7 +462,8 @@ void Event::CheckEvents(){
   XNextEvent(RSGL::display, &RSGL::event);
   XEvent E = RSGL::event;
   type = RSGL::event.type;
-  if (type == 33 && E.xclient.data.l[0] == XInternAtom(RSGL::display, "WM_DELETE_WINDOW", true)){} else{type == 0;} 
+  if (type == 33 && E.xclient.data.l[0] == XInternAtom(RSGL::display, "WM_DELETE_WINDOW", true)){} 
+  else if (type == 33 && E.xclient.message_type == XInternAtom(RSGL::display, "XdndDrop", false)){type=34;}  else{type = 0;} 
   if (type == 4 || type == 5){button = E.xbutton.button;}
   if (type == 4 || type == 5 || type == 6){x=E.xbutton.x;y=E.xbutton.y;}
   if (type == 2 || type == 3){XQueryKeymap(RSGL::display,RSGL::keyboard);}
