@@ -39,8 +39,11 @@ RSGLWindow createWindow(std::string name,int x1, int y1,int w1, int h1, RSGL::co
     XSetWMProtocols(RSGL::display, RSGL::window, &wm_delete, 1);
     XGCValues values;
     
-    Atom xdnd = XInternAtom(RSGL::display, "XdndAware", true);
-    XSetWMProtocols(RSGL::display, RSGL::window, &xdnd, 1);
+    Atom xdndAtom = XInternAtom( RSGL::display, "XdndAware", False );
+    char xdndVersion = 5;
+    XChangeProperty( RSGL::display, RSGL::window, xdndAtom, XA_ATOM, 32,
+            PropModeReplace, (unsigned char *)&xdndVersion, 1 );
+    
     RSGL::gc = DefaultGC(RSGL::display, 0);
 
     #ifdef OPENGL
